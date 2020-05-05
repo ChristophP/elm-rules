@@ -1,4 +1,16 @@
-module Rules exposing (..)
+module Rules exposing
+    ( Action
+    , Matcher
+    , Rule
+    , all
+    , first
+    , matchAll
+    , matchAlways
+    , matchAny
+    , matchNot
+    , run
+    , simple
+    )
 
 -- MATCHERS
 
@@ -71,7 +83,7 @@ run : Rule data result -> data -> result -> result
 run rule data initialValue =
     let
         result =
-            runHelp rule data { foundMatch = False, value = initialValue }
+            runHelp rule data (State False initialValue)
     in
     result.value
 
