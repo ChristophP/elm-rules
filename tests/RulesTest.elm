@@ -1,44 +1,82 @@
 module RulesTest exposing (..)
 
 import Expect exposing (Expectation)
-import Fuzz exposing (Fuzzer, int, list, string)
+import Fuzz exposing (Fuzzer, int, string, tuple)
 import Rules
 import Test exposing (..)
+
+
+passMatcher : a -> b -> Bool
+passMatcher _ _ =
+    True
+
+
+failMatcher : a -> b -> Bool
+failMatcher _ _ =
+    False
+
+
+twoNumFuzzer =
+    tuple ( int, int )
+
+
+matchEven : a -> Int -> Bool
+matchEven _ y =
+    modBy 2 y == 0
+
+
+isTwoMatcher : a -> Int -> Bool
+isTwoMatcher _ num =
+    num == 2
 
 
 matchers : Test
 matchers =
     describe "Matchers"
         [ describe "pass"
-            [ test "matches always" <|
-                \() ->
-                    Rules.matchAlways ()
+            [ fuzz twoNumFuzzer "matches always" <|
+                \( x, y ) ->
+                    Rules.matchAlways x y
                         |> Expect.equal True
             ]
         , describe "not"
-            [ test "inverts the outcome of the matcher" <|
-                \() ->
-                    Rules.matchNot (always True) ()
-                        |> Expect.equal False
+            [ fuzz twoNumFuzzer "inverts the outcome of the matcher" <|
+                \( _, y ) ->
+                    Rules.matchNot matchEven () y
+                        |> Expect.equal (not (matchEven () y))
             ]
         , describe "all"
-            [ test "true when all matchers are true" <|
-                \() ->
-                    Rules.matchAll [ always True, always True ] ()
+            [ fuzz twoNumFuzzer "true when all matchers are true" <|
+                \( x, y ) ->
+                    Rules.matchAll [ passMatcher, passMatcher ] x y
                         |> Expect.equal True
-            , test "false when at least one matcher is false" <|
-                \() ->
-                    Rules.matchAll [ always False, always True ] ()
+            , fuzz twoNumFuzzer "false when at least one matcher is false" <|
+                \( x, y ) ->
+                    Rules.matchAll [ failMatcher, passMatcher ] x y
                         |> Expect.equal False
             ]
         , describe "any"
             [ test "true when at least one matcher is true" <|
                 \() ->
-                    Rules.matchAny [ always True, always False ] ()
+                    Rules.matchAny [ passMatcher, failMatcher ] () ()
                         |> Expect.equal True
             , test "false when all matchers are false" <|
                 \() ->
-                    Rules.matchAny [ always False, always False ] ()
+                    Rules.matchAny [ failMatcher, failMatcher ] () ()
                         |> Expect.equal False
+            ]
+        ]
+
+
+rules =
+    describe "Rules"
+        [ describe "run"
+            [ test "acummulates a result" <|
+                \() ->
+                    Rules.run
+                        (Rules.rule isTwoMatcher (\data value -> value + 1))
+                        2
+                        2
+                        |> Expect.equal 3
             ]
         ]

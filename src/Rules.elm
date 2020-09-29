@@ -2,41 +2,42 @@ module Rules exposing
     ( Action
     , Matcher
     , Rule
-    , all
-    , first
+    , allOf
+    , map
     , matchAll
     , matchAlways
     , matchAny
     , matchNot
+    , oneOf
+    , rule
     , run
-    , simple
     )
 
 -- MATCHERS
 
 
-type alias Matcher a =
-    a -> Bool
+type alias Matcher data result =
+    data -> result -> Bool
 
 
-matchAlways : Matcher a
-matchAlways =
-    always True
+matchAlways : Matcher data result
+matchAlways _ _ =
+    True
 
 
-matchNot : Matcher a -> Matcher a
+matchNot : Matcher data result -> Matcher data result
 matchNot matcher =
-    matcher >> Basics.not
+    \data value -> not (matcher data value)
 
 
-matchAll : List (Matcher a) -> Matcher a
-matchAll matchers data =
-    List.all ((|>) data) matchers
+matchAll : List (Matcher data result) -> Matcher data result
+matchAll matchers =
+    \data value -> List.all (\fn -> fn data value) matchers
 
 
-matchAny : List (Matcher a) -> Matcher a
-matchAny matchers data =
-    List.any ((|>) data) matchers
+matchAny : List (Matcher data result) -> Matcher data result
+matchAny matchers =
+    \data value -> List.any (\fn -> fn data value) matchers
 
 
 
@@ -48,7 +49,7 @@ type alias Action data result =
 
 
 type Rule data result
-    = Simple (Matcher data) (Action data result)
+    = Simple (Matcher data result) (Action data result)
     | All (List (Rule data result))
     | First (List (Rule data result))
 
@@ -57,33 +58,48 @@ type Rule data result
 --| Mapped (data -> newData) (Rule newData result)
 
 
-simple : { matcher : Matcher data, action : Action data result } -> Rule data result
-simple { matcher, action } =
+rule : Matcher data result -> Action data result -> Rule data result
+rule matcher action =
     Simple matcher action
 
 
-all : List (Rule data result) -> Rule data result
-all =
+fromRecord : { matcher : Matcher data result, action : Action data result } -> Rule data result
+fromRecord { matcher, action } =
+    Simple matcher action
+
+
+allOf : List (Rule data result) -> Rule data result
+allOf =
     All
 
 
-first : List (Rule data result) -> Rule data result
-first =
+oneOf : List (Rule data result) -> Rule data result
+oneOf =
     First
 
 
+map : (dataB -> dataA) -> Rule dataA result -> Rule dataB result
+map func rule_ =
+    case rule_ of
+        Simple matcher action ->
+            Simple (func >> matcher) (\data result -> action (func data) result)
 
---map : (dataA -> dataB) -> Rule dataA result -> Rule dataB result
---map =
---Mapped
+        All rules ->
+            All (List.map (map func) rules)
+
+        First rules ->
+            First (List.map (map func) rules)
+
+
+
 -- RUN RULES
 
 
 run : Rule data result -> data -> result -> result
-run rule data initialValue =
+run rule_ data initialValue =
     let
         result =
-            runHelp rule data (State False initialValue)
+            runHelp rule_ data (State False initialValue)
     in
     result.value
 
@@ -93,8 +109,8 @@ type alias State result =
 
 
 runHelp : Rule data result -> data -> State result -> State result
-runHelp rule data state =
-    case rule of
+runHelp rule_ data state =
+    case rule_ of
         All rules ->
             runAllMatchingRules rules data state
 
@@ -102,7 +118,7 @@ runHelp rule data state =
             runAllMatchingRules rules data state
 
         Simple matcher action ->
-            if matcher data then
+            if matcher data state.value then
                 { foundMatch = True, value = action data state.value }
 
             else
