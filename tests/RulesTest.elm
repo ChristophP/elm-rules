@@ -75,8 +75,50 @@ rules =
                 \() ->
                     Rules.run
                         (Rules.rule isTwoMatcher (\data value -> value + 1))
-                        2
+                        ()
                         2
                         |> Expect.equal 3
+            , test "returns old result of matcher is false" <|
+                \() ->
+                    Rules.run
+                        (Rules.rule failMatcher (\data value -> value + 1))
+                        ()
+                        2
+                        |> Expect.equal 2
+            ]
+        , describe "combined rules"
+            [ test "all matching rules are run when combined with all" <|
+                \() ->
+                    let
+                        rule =
+                            Rules.rule passMatcher (\data value -> value + 1)
+                    in
+                    Rules.run
+                        (Rules.allOf [ rule, rule ])
+                        ()
+                        2
+                        |> Expect.equal 4
+            , test "only matching rules are run when combined with all" <|
+                \() ->
+                    let
+                        rule =
+                            Rules.rule isTwoMatcher (\data value -> value + 1)
+                    in
+                    Rules.run
+                        (Rules.allOf [ rule, rule ])
+                        ()
+                        2
+                        |> Expect.equal 3
+            , test "no unmatching rules are run when combined with all" <|
+                \() ->
+                    let
+                        rule =
+                            Rules.rule failMatcher (\data value -> value + 1)
+                    in
+                    Rules.run
+                        (Rules.allOf [ rule, rule ])
+                        ()
+                        2
+                        |> Expect.equal 2
             ]
         ]

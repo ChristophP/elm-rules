@@ -3,7 +3,7 @@ module Rules exposing
     , Matcher
     , Rule
     , allOf
-    , map
+    , injectFacts
     , matchAll
     , matchAlways
     , matchAny
@@ -78,17 +78,17 @@ oneOf =
     First
 
 
-map : (dataB -> dataA) -> Rule dataA result -> Rule dataB result
-map func rule_ =
+injectFacts : (dataB -> dataA) -> Rule dataA result -> Rule dataB result
+injectFacts func rule_ =
     case rule_ of
         Simple matcher action ->
             Simple (func >> matcher) (\data result -> action (func data) result)
 
         All rules ->
-            All (List.map (map func) rules)
+            All (List.map (injectFacts func) rules)
 
         First rules ->
-            First (List.map (map func) rules)
+            First (List.map (injectFacts func) rules)
 
 
 
@@ -115,7 +115,7 @@ runHelp rule_ data state =
             runAllMatchingRules rules data state
 
         First rules ->
-            runAllMatchingRules rules data state
+            runFirstMatchingRule rules data state
 
         Simple matcher action ->
             if matcher data state.value then
