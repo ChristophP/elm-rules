@@ -11,6 +11,7 @@ module Rules exposing
     , oneOf
     , rule
     , run
+    , transformOutput
     )
 
 -- MATCHERS
@@ -89,6 +90,19 @@ injectFacts func rule_ =
 
         First rules ->
             First (List.map (injectFacts func) rules)
+
+
+transformOutput : (resultA -> resultB) -> Rule data resultA -> Rule data resultB
+transformOutput func rule_ =
+    case rule_ of
+        Simple matcher action ->
+            Simple matcher (\data result -> func (action data result))
+
+        All rules ->
+            All (List.map (transformOutput func) rules)
+
+        First rules ->
+            First (List.map (transformOutput func) rules)
 
 
 
